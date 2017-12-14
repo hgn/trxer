@@ -9,6 +9,7 @@ import "strconv"
 import "sync"
 
 var UPDATE_INTERVAL = 5
+var PORT = 6666
 
 var BYTE_BUFFER_SIZE = 8096 * 8
 
@@ -17,8 +18,33 @@ type measurement struct {
 	time  float64
 }
 
+func udp_client_worker(addr string, wg sync.WaitGroup) {
+	buf := make([]byte, 1400, 1400)
+	conn, err := net.Dial("udp", addr)
+	if err != nil {
+		panic("dial")
+	}
+	defer conn.Close()
+
+	for {
+		_, err := conn.Write(buf)
+		if err != nil {
+			panic("write")
+		}
+	}
+	wg.Done()
+}
+
 func udp_client(threads int, addr string) {
-	//
+	port := PORT
+	var wg sync.WaitGroup
+	wg.Add(threads)
+	for i := 0; i < threads; i++ {
+		listen := addr + ":" + strconv.Itoa(port)
+		go udp_client_worker(listen, wg)
+		port += 1
+	}
+	wg.Wait()
 }
 
 func udp_server_worker(c chan<- measurement, port int) {

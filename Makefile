@@ -4,3 +4,6 @@ all:
 
 clean:
 	rm -rf trxer
+
+fmt:
+	gofmt -l -w trxer.go
