@@ -23,24 +23,30 @@ func udp_client(threads int, addr string) {
 
 func udp_server_worker(c chan<- measurement, port int) {
 
-	listen := "[::]:" + strconv.Itoa(port);
-	println("Listening on", listen)
-	pc, error := net.ListenPacket("udp", listen);
+	listen := "[::]:" + strconv.Itoa(port)
+	addr, error := net.ResolveUDPAddr("udp", listen)
 	if error != nil {
-		fmt.Printf("Cannot listen: %s\n", error);
-		os.Exit(1);
+		fmt.Printf("Cannot listen: %s\n", error)
+		os.Exit(1)
+	}
+
+	println("Listening on", listen)
+	pc, error := net.ListenUDP("udp", addr)
+	if error != nil {
+		fmt.Printf("Cannot listen: %s\n", error)
+		os.Exit(1)
 	}
 	defer pc.Close()
 
-	message := make([]byte, BYTE_BUFFER_SIZE, BYTE_BUFFER_SIZE);
+	message := make([]byte, BYTE_BUFFER_SIZE, BYTE_BUFFER_SIZE)
 
-	var bytes uint64  = 0;
+	var bytes uint64 = 0
 	start := time.Now()
 	for {
-		read, _, error := pc.ReadFrom(message);
+		read, _, error := pc.ReadFromUDP(message)
 		if error != nil {
-			fmt.Printf("Cannot read: %s\n", error);
-			os.Exit(1);
+			fmt.Printf("Cannot read: %s\n", error)
+			os.Exit(1)
 		}
 
 		bytes += uint64(read)
@@ -55,7 +61,6 @@ func udp_server_worker(c chan<- measurement, port int) {
 
 }
 
-
 func udp_server(threads int) {
 	c := make(chan measurement)
 	port := 6666
@@ -64,8 +69,7 @@ func udp_server(threads int) {
 		port += 1
 	}
 
-
-	var accumulated uint64  = 0;
+	var accumulated uint64 = 0
 	for {
 		for i := 0; i < threads; i++ {
 			val := <-c
@@ -85,7 +89,7 @@ func tcp_client_worker(addr string, wg sync.WaitGroup) {
 		panic("dial")
 	}
 	for {
-		_, err  := conn.Write(buf)
+		_, err := conn.Write(buf)
 		if err != nil {
 			panic("write")
 		}
@@ -98,7 +102,7 @@ func tcp_client(threads int, addr string) {
 	var wg sync.WaitGroup
 	wg.Add(threads)
 	for i := 0; i < threads; i++ {
-		listen := addr + ":" + strconv.Itoa(port);
+		listen := addr + ":" + strconv.Itoa(port)
 		go tcp_client_worker(listen, wg)
 		port += 1
 	}
@@ -113,8 +117,7 @@ func tcp_server(threads int) {
 		port += 1
 	}
 
-
-	var accumulated uint64  = 0;
+	var accumulated uint64 = 0
 	for {
 		for i := 0; i < threads; i++ {
 			val := <-c
@@ -127,36 +130,35 @@ func tcp_server(threads int) {
 }
 
 func tcp_server_worker(c chan<- measurement, port int) {
-
-	listen := "[::]:" + strconv.Itoa(port);
+	listen := "[::]:" + strconv.Itoa(port)
 	println("Listening on", listen)
-	addr, error := net.ResolveTCPAddr("tcp", listen);
+	addr, error := net.ResolveTCPAddr("tcp", listen)
 	if error != nil {
-		fmt.Printf("Cannot parse \"%s\": %s\n", listen, error);
-		os.Exit(1);
+		fmt.Printf("Cannot parse \"%s\": %s\n", listen, error)
+		os.Exit(1)
 	}
-	listener, error := net.ListenTCP("tcp", addr);
+	listener, error := net.ListenTCP("tcp", addr)
 	if error != nil {
-		fmt.Printf("Cannot listen: %s\n", error);
-		os.Exit(1);
-	}
-
-	conn, error := listener.AcceptTCP();
-	if error != nil {
-		fmt.Printf("Cannot accept: %s\n", error);
-		os.Exit(1);
+		fmt.Printf("Cannot listen: %s\n", error)
+		os.Exit(1)
 	}
 
-	fmt.Printf("Connection from %s\n", conn.RemoteAddr());
-	message := make([]byte, BYTE_BUFFER_SIZE, BYTE_BUFFER_SIZE);
+	conn, error := listener.AcceptTCP()
+	if error != nil {
+		fmt.Printf("Cannot accept: %s\n", error)
+		os.Exit(1)
+	}
 
-	var bytes uint64  = 0;
+	fmt.Printf("Connection from %s\n", conn.RemoteAddr())
+	message := make([]byte, BYTE_BUFFER_SIZE, BYTE_BUFFER_SIZE)
+
+	var bytes uint64 = 0
 	start := time.Now()
 	for {
-		n1, error := conn.Read(message);
+		n1, error := conn.Read(message)
 		if error != nil {
-			fmt.Printf("Cannot read: %s\n", error);
-			os.Exit(1);
+			fmt.Printf("Cannot read: %s\n", error)
+			os.Exit(1)
 		}
 
 		bytes += uint64(n1)
@@ -172,31 +174,30 @@ func tcp_server_worker(c chan<- measurement, port int) {
 }
 
 func main() {
+	protoPtr := flag.String("protocol", "udp", "udp or tcp")
+	modePtr := flag.String("mode", "server", "server (\"localhost\") or IP address ")
+	threadPtr := flag.Int("threads", 1, "an int for numer of coroutines")
 
-    protoPtr := flag.String("protocol", "udp", "udp or tcp")
-    modePtr := flag.String("mode", "server", "server (\"localhost\") or IP address ")
-    threadPtr := flag.Int("threads", 1, "an int for numer of coroutines")
+	flag.Parse()
+	fmt.Println("trxer(c) - 2017")
+	fmt.Println("Protocol:", *protoPtr)
+	fmt.Println("Mode:", *modePtr)
+	fmt.Println("Threads:", *threadPtr)
 
-    flag.Parse()
-    fmt.Println("trxer(c) - 2017")
-    fmt.Println("Protocol:", *protoPtr)
-    fmt.Println("Mode:", *modePtr)
-    fmt.Println("Threads:", *threadPtr)
-
-    if (*protoPtr == "udp") {
-	    if (*modePtr == "server") {
-		    udp_server(*threadPtr)
-	    } else {
-		    udp_client(*threadPtr, *modePtr)
-	    }
-    } else if (*protoPtr == "tcp") {
-	    if (*modePtr == "server") {
-		    tcp_server(*threadPtr)
-	    } else {
-		    tcp_client(*threadPtr, *modePtr)
-	    }
-    } else {
-	    panic("udp or tcp")
-    }
+	if *protoPtr == "udp" {
+		if *modePtr == "server" {
+			udp_server(*threadPtr)
+		} else {
+			udp_client(*threadPtr, *modePtr)
+		}
+	} else if *protoPtr == "tcp" {
+		if *modePtr == "server" {
+			tcp_server(*threadPtr)
+		} else {
+			tcp_client(*threadPtr, *modePtr)
+		}
+	} else {
+		panic("udp or tcp")
+	}
 
 }
