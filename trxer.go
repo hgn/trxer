@@ -38,9 +38,9 @@ func udp_client_worker(addr string, wg sync.WaitGroup) {
 func udp_client(threads int, addr string) {
 	port := PORT
 	var wg sync.WaitGroup
-	wg.Add(threads)
 	for i := 0; i < threads; i++ {
 		listen := addr + ":" + strconv.Itoa(port)
+		wg.Add(1)
 		go udp_client_worker(listen, wg)
 		port += 1
 	}
@@ -108,7 +108,6 @@ func udp_server(threads int) {
 }
 
 func tcp_client_worker(addr string, wg sync.WaitGroup) {
-
 	buf := make([]byte, BYTE_BUFFER_SIZE, BYTE_BUFFER_SIZE)
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
@@ -128,9 +127,9 @@ func tcp_client_worker(addr string, wg sync.WaitGroup) {
 func tcp_client(threads int, addr string) {
 	port := 6666
 	var wg sync.WaitGroup
-	wg.Add(threads)
 	for i := 0; i < threads; i++ {
 		listen := addr + ":" + strconv.Itoa(port)
+		wg.Add(1)
 		go tcp_client_worker(listen, wg)
 		port += 1
 	}
