@@ -114,6 +114,8 @@ func tcp_client_worker(addr string, wg sync.WaitGroup) {
 	if err != nil {
 		panic("dial")
 	}
+	defer conn.Close()
+
 	for {
 		_, err := conn.Write(buf)
 		if err != nil {
@@ -168,12 +170,14 @@ func tcp_server_worker(c chan<- measurement, port int) {
 		fmt.Printf("Cannot listen: %s\n", error)
 		os.Exit(1)
 	}
+	defer listener.Close()
 
 	conn, error := listener.AcceptTCP()
 	if error != nil {
 		fmt.Printf("Cannot accept: %s\n", error)
 		os.Exit(1)
 	}
+	defer conn.Close()
 
 	fmt.Printf("Connection from %s\n", conn.RemoteAddr())
 	message := make([]byte, BYTE_BUFFER_SIZE, BYTE_BUFFER_SIZE)
