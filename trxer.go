@@ -19,6 +19,7 @@ type measurement struct {
 }
 
 func udp_client_worker(addr string, wg sync.WaitGroup) {
+	defer wg.Done()
 	buf := make([]byte, 1400, 1400)
 	conn, err := net.Dial("udp", addr)
 	if err != nil {
@@ -32,7 +33,6 @@ func udp_client_worker(addr string, wg sync.WaitGroup) {
 			panic("write")
 		}
 	}
-	wg.Done()
 }
 
 func udp_client(threads int, addr string) {
@@ -108,6 +108,7 @@ func udp_server(threads int) {
 }
 
 func tcp_client_worker(addr string, wg sync.WaitGroup) {
+	defer wg.Done()
 	buf := make([]byte, BYTE_BUFFER_SIZE, BYTE_BUFFER_SIZE)
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
@@ -121,7 +122,6 @@ func tcp_client_worker(addr string, wg sync.WaitGroup) {
 			panic("write")
 		}
 	}
-	wg.Done()
 }
 
 func tcp_client(threads int, addr string) {
