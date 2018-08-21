@@ -7,6 +7,7 @@ import "net"
 import "time"
 import "strconv"
 import "sync"
+//import "reflect"
 
 var UPDATE_INTERVAL = 5
 var PORT = 6666
@@ -18,12 +19,26 @@ type measurement struct {
 	time  float64
 }
 
-func quic_client_worker(addr string, wg sync.WaitGroup) {
-	fmt.Println("Dummy func for a client quic stream, i.e. single go routine")
+func quic_client_worker(addr string, wg *sync.WaitGroup) {
+	fmt.Println("Quic stream connecting to: ", addr)
+	defer wg.Done()
 }
 
 func quic_client(threads int, addr string) {
-	fmt.Println("Dummy func for client quic side")
+	startPort := PORT
+	var wg sync.WaitGroup
+
+	for i := 0;  i < threads; i++ {
+		destAddr := addr + ":" + strconv.Itoa(startPort)
+		startPort++
+
+		// increment sync primitive per thread
+		wg.Add(1)
+		go quic_client_worker(destAddr, &wg)
+	}
+
+	wg.Wait()
+	fmt.Println("Releasing threads")
 }
 
 func quic_server_worker(c chan<- measurement, port int) {
