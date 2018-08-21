@@ -18,6 +18,22 @@ type measurement struct {
 	time  float64
 }
 
+func quic_client_worker(addr string, wg sync.WaitGroup) {
+	fmt.Println("Dummy func for a client quic stream, i.e. single go routine")
+}
+
+func quic_client(threads int, addr string) {
+	fmt.Println("Dummy func for client quic side")
+}
+
+func quic_server_worker(c chan<- measurement, port int) {
+	fmt.Println("Dummy func for a server quic stream, i.e. single go routine")
+}
+
+func quic_server(threads int) {
+	fmt.Println("Dummy func for server quic side")
+}
+
 func udp_client_worker(addr string, wg sync.WaitGroup) {
 	defer wg.Done()
 	buf := make([]byte, 1400, 1400)
@@ -203,7 +219,7 @@ func tcp_server_worker(c chan<- measurement, port int) {
 }
 
 func main() {
-	protoPtr := flag.String("protocol", "udp", "udp or tcp")
+	protoPtr := flag.String("protocol", "udp", "quic, udp or tcp")
 	modePtr := flag.String("mode", "server", "server (\"localhost\") or IP address ")
 	threadPtr := flag.Int("threads", 1, "an int for numer of coroutines")
 
@@ -224,6 +240,14 @@ func main() {
 			tcp_server(*threadPtr)
 		} else {
 			tcp_client(*threadPtr, *modePtr)
+		}
+	} else if *protoPtr == "quic" {
+		if *modePtr == "server" {
+			// server
+			quic_server(*threadPtr)
+		} else {
+			// client
+			quic_client(*threadPtr, *modePtr)
 		}
 	} else {
 		panic("udp or tcp")
