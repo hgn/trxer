@@ -26,38 +26,30 @@ type measurement struct {
 func quic_client_worker(addr string, wg *sync.WaitGroup) {
 	fmt.Println("Quic stream connecting to: ", addr)
 	buf := make([]byte, 1400, 1400)
-	// debug fmt.Println("buf is: ", reflect.TypeOf(buf))
-
 
 	/* create tls conf, true => TLS accepts any certificate presented
 	by the server and any host name in that certificate
 	 */
 	tlsConf := tls.Config {InsecureSkipVerify: true}
 
-	// establishes connection to server
-	// note: blocks until server con up, if no counterpart => panic
 	session, err := quic.DialAddr(addr, &tlsConf, nil)
 	if err != nil {
 		panic("dialQuic")
 	}
-	// debug fmt.Println("session is: ", reflect.TypeOf(session))
 
 	// open bidirectional QUIC stream => can be used to open several streams?
 	stream, err := session.OpenStreamSync()
 	if err != nil {
 		panic("openStream")
 	}
-	// debug fmt.Println("stream is: ", reflect.TypeOf(stream))
 
 	for {
-		// write 1400 byte data from application layer
 		_, err := stream.Write(buf)
 		if err !=  nil {
 			panic("writeStream")
 		}
 	}
 
-	// check whether this is necessary:
 	defer session.Close()
 	defer wg.Done()
 }
