@@ -25,11 +25,13 @@ type measurement struct {
 
 func quic_client_worker(addr string, wg *sync.WaitGroup) {
 	fmt.Println("Quic stream connecting to: ", addr)
+
 	buf := make([]byte, 1400, 1400)
 
 	/* create tls conf, true => TLS accepts any certificate presented
 	by the server and any host name in that certificate
 	 */
+	
 	tlsConf := tls.Config {InsecureSkipVerify: true}
 
 	session, err := quic.DialAddr(addr, &tlsConf, nil)
@@ -79,7 +81,7 @@ func quic_server(threads int) {
 	fmt.Println("Dummy func for server quic side")
 }
 
-func udp_client_worker(addr string, wg sync.WaitGroup) {
+func udp_client_worker(addr string, wg *sync.WaitGroup) {
 	defer wg.Done()
 	buf := make([]byte, 1400, 1400)
 	conn, err := net.Dial("udp", addr)
@@ -102,7 +104,7 @@ func udp_client(threads int, addr string) {
 	for i := 0; i < threads; i++ {
 		listen := addr + ":" + strconv.Itoa(port)
 		wg.Add(1)
-		go udp_client_worker(listen, wg)
+		go udp_client_worker(listen, &wg)
 		port += 1
 	}
 	wg.Wait()
@@ -168,7 +170,7 @@ func udp_server(threads int) {
 	}
 }
 
-func tcp_client_worker(addr string, wg sync.WaitGroup) {
+func tcp_client_worker(addr string, wg *sync.WaitGroup) {
 	defer wg.Done()
 	buf := make([]byte, BYTE_BUFFER_SIZE, BYTE_BUFFER_SIZE)
 	conn, err := net.Dial("tcp", addr)
@@ -191,7 +193,7 @@ func tcp_client(threads int, addr string) {
 	for i := 0; i < threads; i++ {
 		listen := addr + ":" + strconv.Itoa(port)
 		wg.Add(1)
-		go tcp_client_worker(listen, wg)
+		go tcp_client_worker(listen, &wg)
 		port += 1
 	}
 	wg.Wait()
