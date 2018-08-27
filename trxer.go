@@ -127,36 +127,27 @@ func create_tls_config() *tls.Config {
 	if err != nil {
 		panic("generateRsa")
 	}
-
-	fmt.Println("goroutine called: pkey is type ", reflect.TypeOf(pKey))
-	//fmt.Println("goroutine called: pkey is ", pKey)
-
+	
 	// 2. x509 CERT template
 	certTemplate := x509.Certificate{SerialNumber: big.NewInt(1)}
-	fmt.Println("goroutine called: cert temp is type ", reflect.TypeOf(certTemplate))
 	
 	// 3. create self-signed x509 certificate => DER used for binary encoded certs
 	certDER, err := x509.CreateCertificate(rand.Reader, &certTemplate, &certTemplate, &pKey.PublicKey, pKey)
 	if err != nil {
 		panic("generateX509DER")
 	}
-	fmt.Println("goroutine called: cert DER is type ", reflect.TypeOf(certDER))
 
 	// 4. encode key in PEM
 	pKeyPEM := pem.EncodeToMemory(&pem.Block{Type : "RSA PRIVATE KEY", Bytes : x509.MarshalPKCS1PrivateKey(pKey)})
-	fmt.Println("goroutine called: pkeyPEM is type ", reflect.TypeOf(pKeyPEM))
 
 	// 5. encode certDER in PEM
 	certPEM := pem.EncodeToMemory(&pem.Block{Type : "CERTIFICATE", Bytes : certDER})
-	fmt.Println("goroutine called: certPEM is type ", reflect.TypeOf(certPEM))
 
 	// 6. create tls cert
 	tlsCert, err := tls.X509KeyPair(certPEM, pKeyPEM)
 	if err != nil {
 		fmt.Println("generateTlsCert")
 	}
-	fmt.Println("goroutine called: tlsCert is type ", reflect.TypeOf(tlsCert))
-	// fmt.Println("goroutine called: tlsCert is ", tlsCert)
 
 	// 7. return tls config struct, i dont get what struct member we're addressing...
 	return &tls.Config{Certificates: []tls.Certificate{tlsCert}}
