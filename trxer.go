@@ -7,7 +7,7 @@ import "net"
 import "time"
 import "strconv"
 import "sync"
-//import "reflect"
+import "reflect"
 
 // quic specific packages
 import "crypto/tls"
@@ -57,12 +57,12 @@ func quic_client_worker(addr string, wg *sync.WaitGroup) {
 }
 
 func quic_client(threads int, addr string) {
-	startPort := PORT
+	port := PORT
 	var wg sync.WaitGroup
 
 	for i := 0;  i < threads; i++ {
-		destAddr := addr + ":" + strconv.Itoa(startPort)
-		startPort++
+		destAddr := addr + ":" + strconv.Itoa(port)
+		port++
 
 		// increment sync primitive per thread
 		wg.Add(1)
@@ -74,11 +74,35 @@ func quic_client(threads int, addr string) {
 }
 
 func quic_server_worker(c chan<- measurement, port int) {
-	fmt.Println("Dummy func for a server quic stream, i.e. single go routine")
+	// TO DO: calibrate time interval, i.e. time.Now
+	recvData := measurement{bytes: 10000000, time: 1.0}
+	c <- recvData
 }
 
 func quic_server(threads int) {
-	fmt.Println("Dummy func for server quic side")
+	var accumulated uint64
+	port := PORT
+	connStats := make(chan measurement)
+	fmt.Println("Conn stats is of type: ", reflect.TypeOf(connStats))
+
+	for i := 0; i < threads; i++ {
+		fmt.Println("Listening on port: ", port)
+		go quic_server_worker(connStats, port)
+		port++
+	}
+
+	for {
+		for i := 0; i < threads; i++ {
+		recvData := <- connStats
+		accumulated += recvData.bytes
+		fmt.Println("Received data: ", recvData, "on thread: ", i)
+		}
+
+		mByteSec := accumulated / (1000000 * uint64(UPDATE_INTERVAL))
+		fmt.Println("accumulated bytes: ", accumulated)
+		fmt.Println("Throughput MBytes/sec: ", mByteSec)
+		accumulated = 0
+	}
 }
 
 func udp_client_worker(addr string, wg *sync.WaitGroup) {
