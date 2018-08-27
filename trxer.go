@@ -7,11 +7,17 @@ import "net"
 import "time"
 import "strconv"
 import "sync"
-// import "reflect"
+import "reflect"
 
 // quic specific packages
 import "crypto/tls"
 import quic "github.com/lucas-clemente/quic-go"
+import "crypto/rsa"
+import "crypto/rand"
+import "crypto/x509"
+import "math/big"
+import "encoding/pem"
+
 
 var UPDATE_INTERVAL = 5
 var PORT = 6666
@@ -74,9 +80,19 @@ func quic_client(threads int, addr string) {
 }
 
 func quic_server_worker(c chan<- measurement, port int) {
-	// TO DO: calibrate time interval, i.e. time.Now
+	// TODO: CHECK CALCULATION => calibrate time interval, i.e. time.Now
+
+	/*
 	recvData := measurement{bytes: 10000000, time: 1.0}
 	c <- recvData
+	*/
+
+	listenAddr := "[::]:" + strconv.Itoa(port)
+	fmt.Println("goroutine: listening on ", listenAddr)
+
+	tlsConf := create_tls_config()
+	fmt.Println("goroutine: tls config is ", reflect.TypeOf(tlsConf))
+
 }
 
 func quic_server(threads int) {
@@ -96,11 +112,56 @@ func quic_server(threads int) {
 		accumulated += recvData.bytes
 		}
 
+		// TODO CHECK CALCULATION
 		mByteSec := accumulated / (1000000 * uint64(UPDATE_INTERVAL))
 		fmt.Println("Throughput MBytes/sec: ", mByteSec)
 		accumulated = 0
 	}
 }
+
+func create_tls_config() *tls.Config {
+	fmt.Println("goroutine called: func to create TLS certificate")
+
+	// 1. generate KEY: generate 1024 bit key using RNG
+	pKey, err := rsa.GenerateKey(rand.Reader, 1024)
+	if err != nil {
+		panic("generateRsa")
+	}
+
+	fmt.Println("goroutine called: pkey is type ", reflect.TypeOf(pKey))
+	//fmt.Println("goroutine called: pkey is ", pKey)
+
+	// 2. x509 CERT template
+	certTemplate := x509.Certificate{SerialNumber: big.NewInt(1)}
+	fmt.Println("goroutine called: cert temp is type ", reflect.TypeOf(certTemplate))
+	
+	// 3. create self-signed x509 certificate => DER used for binary encoded certs
+	certDER, err := x509.CreateCertificate(rand.Reader, &certTemplate, &certTemplate, &pKey.PublicKey, pKey)
+	if err != nil {
+		panic("generateX509DER")
+	}
+	fmt.Println("goroutine called: cert DER is type ", reflect.TypeOf(certDER))
+
+	// 4. encode key in PEM
+	pKeyPEM := pem.EncodeToMemory(&pem.Block{Type : "RSA PRIVATE KEY", Bytes : x509.MarshalPKCS1PrivateKey(pKey)})
+	fmt.Println("goroutine called: pkeyPEM is type ", reflect.TypeOf(pKeyPEM))
+
+	// 5. encode certDER in PEM
+	certPEM := pem.EncodeToMemory(&pem.Block{Type : "CERTIFICATE", Bytes : certDER})
+	fmt.Println("goroutine called: certPEM is type ", reflect.TypeOf(certPEM))
+
+	// 6. create tls cert
+	tlsCert, err := tls.X509KeyPair(certPEM, pKeyPEM)
+	if err != nil {
+		fmt.Println("generateTlsCert")
+	}
+	fmt.Println("goroutine called: tlsCert is type ", reflect.TypeOf(tlsCert))
+	// fmt.Println("goroutine called: tlsCert is ", tlsCert)
+
+	// 7. return tls config struct, i dont get what struct member we're addressing...
+	return &tls.Config{Certificates: []tls.Certificate{tlsCert}}
+}
+
 
 func udp_client_worker(addr string, wg *sync.WaitGroup) {
 	defer wg.Done()
