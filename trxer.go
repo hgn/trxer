@@ -7,7 +7,7 @@ import "net"
 import "time"
 import "strconv"
 import "sync"
-import "reflect"
+// import "reflect"
 
 // quic specific packages
 import "crypto/tls"
@@ -83,8 +83,7 @@ func quic_server(threads int) {
 	var accumulated uint64
 	port := PORT
 	connStats := make(chan measurement)
-	fmt.Println("Conn stats is of type: ", reflect.TypeOf(connStats))
-
+	
 	for i := 0; i < threads; i++ {
 		fmt.Println("Listening on port: ", port)
 		go quic_server_worker(connStats, port)
@@ -95,11 +94,9 @@ func quic_server(threads int) {
 		for i := 0; i < threads; i++ {
 		recvData := <- connStats
 		accumulated += recvData.bytes
-		fmt.Println("Received data: ", recvData, "on thread: ", i)
 		}
 
 		mByteSec := accumulated / (1000000 * uint64(UPDATE_INTERVAL))
-		fmt.Println("accumulated bytes: ", accumulated)
 		fmt.Println("Throughput MBytes/sec: ", mByteSec)
 		accumulated = 0
 	}
