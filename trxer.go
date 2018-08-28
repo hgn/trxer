@@ -45,6 +45,8 @@ func quic_client_worker(addr string, wg *sync.WaitGroup) {
 		panic("dialQuic")
 	}
 
+	defer session.Close()
+
 	// open bidirectional QUIC stream => can be used to open several streams?
 	stream, err := session.OpenStreamSync()
 	if err != nil {
@@ -58,7 +60,6 @@ func quic_client_worker(addr string, wg *sync.WaitGroup) {
 		}
 	}
 
-	defer session.Close()
 	defer wg.Done()
 }
 
@@ -91,8 +92,45 @@ func quic_server_worker(c chan<- measurement, port int) {
 	fmt.Println("goroutine: listening on ", listenAddr)
 
 	tlsConf := create_tls_config()
-	fmt.Println("goroutine: tls config is ", reflect.TypeOf(tlsConf))
+	// fmt.Println("goroutine: tls config is ", reflect.TypeOf(tlsConf))
 
+	/* Server started with ListenAddr
+	   Creates packet conn and listening on given address
+	 */
+	packetConn, err := quic.ListenAddr(listenAddr, tlsConf, nil)
+	if err != nil {
+		panic("listenAddr")
+	}
+
+	fmt.Println("goroutine: wait for incoming connection")
+	fmt.Println("goroutine: packet conn is ", reflect.TypeOf(packetConn))
+	
+	// accept incoming connection
+	sess, err := packetConn.Accept()
+	if err != nil {
+		panic("acceptConn")
+	}
+
+	fmt.Println("goroutine: connection established")
+	fmt.Println("goroutine: sess is ", reflect.TypeOf(sess))
+
+	// connection close
+	// possible candidates => different granularities
+	// 1) session.go: SESSION level => func (s *session) Close() err
+	// 2) server.go: CONNECTION level => func (s *Server) Close()
+	// 3) stream.go: STREAM level => func (s *stream) Close() err
+	defer sess.Close()
+
+	/* "return next stream opened by peer" => stream NOT streamID
+	   c.f. packet connection can consist of several bidirection streams
+	 */
+	stream, err := sess.AcceptStream ()
+	if err != nil {
+		panic("acceptStream")
+	}
+
+	fmt.Println("goroutine: stream accepted")
+	fmt.Println("goroutine: stream id is ", reflect.TypeOf(stream))
 }
 
 func quic_server(threads int) {
@@ -101,7 +139,6 @@ func quic_server(threads int) {
 	connStats := make(chan measurement)
 	
 	for i := 0; i < threads; i++ {
-		fmt.Println("Listening on port: ", port)
 		go quic_server_worker(connStats, port)
 		port++
 	}
@@ -120,8 +157,6 @@ func quic_server(threads int) {
 }
 
 func create_tls_config() *tls.Config {
-	fmt.Println("goroutine called: func to create TLS certificate")
-
 	// 1. generate KEY: generate 1024 bit key using RNG
 	pKey, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
@@ -152,7 +187,6 @@ func create_tls_config() *tls.Config {
 	// 7. return tls config struct, i dont get what struct member we're addressing...
 	return &tls.Config{Certificates: []tls.Certificate{tlsCert}}
 }
-
 
 func udp_client_worker(addr string, wg *sync.WaitGroup) {
 	defer wg.Done()
