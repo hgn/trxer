@@ -7,7 +7,7 @@ import "net"
 import "time"
 import "strconv"
 import "sync"
-import "reflect"
+//import "reflect"
 
 // quic specific packages
 import "crypto/tls"
@@ -17,6 +17,7 @@ import "crypto/rand"
 import "crypto/x509"
 import "math/big"
 import "encoding/pem"
+import "io"
 
 
 var UPDATE_INTERVAL = 5
@@ -81,18 +82,14 @@ func quic_client(threads int, addr string) {
 }
 
 func quic_server_worker(c chan<- measurement, port int) {
-	// TODO: CHECK CALCULATION => calibrate time interval, i.e. time.Now
-
-	/*
-	recvData := measurement{bytes: 10000000, time: 1.0}
-	c <- recvData
-	*/
-
+	var bytesPerInterval uint64 = 0
+	buf := make([]byte, 1400, 1400)
 	listenAddr := "[::]:" + strconv.Itoa(port)
-	fmt.Println("goroutine: listening on ", listenAddr)
 
+	fmt.Println("goroutine: listening on ", listenAddr)
+	
 	tlsConf := create_tls_config()
-	// fmt.Println("goroutine: tls config is ", reflect.TypeOf(tlsConf))
+	// debug fmt.Println("goroutine: tls config is ", reflect.TypeOf(tlsConf))
 
 	/* Server started with ListenAddr
 	   Creates packet conn and listening on given address
@@ -103,7 +100,7 @@ func quic_server_worker(c chan<- measurement, port int) {
 	}
 
 	fmt.Println("goroutine: wait for incoming connection")
-	fmt.Println("goroutine: packet conn is ", reflect.TypeOf(packetConn))
+	// debug fmt.Println("goroutine: packet conn is ", reflect.TypeOf(packetConn))
 	
 	// accept incoming connection
 	sess, err := packetConn.Accept()
@@ -112,7 +109,7 @@ func quic_server_worker(c chan<- measurement, port int) {
 	}
 
 	fmt.Println("goroutine: connection established")
-	fmt.Println("goroutine: sess is ", reflect.TypeOf(sess))
+	// debug fmt.Println("goroutine: sess is ", reflect.TypeOf(sess))
 
 	// connection close
 	// possible candidates => different granularities
@@ -130,7 +127,40 @@ func quic_server_worker(c chan<- measurement, port int) {
 	}
 
 	fmt.Println("goroutine: stream accepted")
-	fmt.Println("goroutine: stream id is ", reflect.TypeOf(stream))
+	// debug fmt.Println("goroutine: stream id is ", reflect.TypeOf(stream))
+
+	start := time.Now()
+	
+	/*
+	fmt.Println("goroutine: UPDATE_INTERVAL is: ", reflect.TypeOf(UPDATE_INTERVAL))
+	fmt.Println("goroutine: buf is: ", reflect.TypeOf(buf))
+	fmt.Println("goroutine: bytesPerInterval is: ", reflect.TypeOf(bytesPerInterval))
+	*/
+
+	for {
+		// 1. stream read out
+		numBytes, err := io.ReadFull(stream, buf)
+		if err != nil {
+			panic("readStream")
+		}
+		bytesPerInterval += uint64(numBytes)
+
+		elapsed := time.Since(start)
+		// elapsed.Seconds() returns float64
+		if elapsed.Seconds() > float64(UPDATE_INTERVAL) {
+			// 2. make result
+			result := measurement{bytes: bytesPerInterval, time: elapsed.Seconds()}
+
+			/*
+			fmt.Println("goroutine: bytesPerInterval read: ", bytesPerInterval)
+			fmt.Println("goroutine: time elapsed: ", elapsed.Seconds())
+			*/
+
+			c <- result
+			bytesPerInterval = 0
+			start = time.Now()
+		}
+	}
 }
 
 func quic_server(threads int) {
@@ -149,9 +179,8 @@ func quic_server(threads int) {
 		accumulated += recvData.bytes
 		}
 
-		// TODO CHECK CALCULATION
 		mByteSec := accumulated / (1000000 * uint64(UPDATE_INTERVAL))
-		fmt.Println("Throughput MBytes/sec: ", mByteSec)
+		fmt.Println("Throughput MByte/sec: ", mByteSec)
 		accumulated = 0
 	}
 }
