@@ -89,7 +89,6 @@ func quic_server_worker(c chan<- measurement, port int) {
 	fmt.Println("goroutine: listening on ", listenAddr)
 	
 	tlsConf := create_tls_config()
-	// debug fmt.Println("goroutine: tls config is ", reflect.TypeOf(tlsConf))
 
 	/* Server started with ListenAddr
 	   Creates packet conn and listening on given address
@@ -100,7 +99,6 @@ func quic_server_worker(c chan<- measurement, port int) {
 	}
 
 	fmt.Println("goroutine: wait for incoming connection")
-	// debug fmt.Println("goroutine: packet conn is ", reflect.TypeOf(packetConn))
 	
 	// accept incoming connection
 	sess, err := packetConn.Accept()
@@ -109,7 +107,6 @@ func quic_server_worker(c chan<- measurement, port int) {
 	}
 
 	fmt.Println("goroutine: connection established")
-	// debug fmt.Println("goroutine: sess is ", reflect.TypeOf(sess))
 
 	// connection close
 	// possible candidates => different granularities
@@ -127,18 +124,10 @@ func quic_server_worker(c chan<- measurement, port int) {
 	}
 
 	fmt.Println("goroutine: stream accepted")
-	// debug fmt.Println("goroutine: stream id is ", reflect.TypeOf(stream))
 
 	start := time.Now()
 	
-	/*
-	fmt.Println("goroutine: UPDATE_INTERVAL is: ", reflect.TypeOf(UPDATE_INTERVAL))
-	fmt.Println("goroutine: buf is: ", reflect.TypeOf(buf))
-	fmt.Println("goroutine: bytesPerInterval is: ", reflect.TypeOf(bytesPerInterval))
-	*/
-
 	for {
-		// 1. stream read out
 		numBytes, err := io.ReadFull(stream, buf)
 		if err != nil {
 			panic("readStream")
@@ -148,14 +137,7 @@ func quic_server_worker(c chan<- measurement, port int) {
 		elapsed := time.Since(start)
 		// elapsed.Seconds() returns float64
 		if elapsed.Seconds() > float64(UPDATE_INTERVAL) {
-			// 2. make result
 			result := measurement{bytes: bytesPerInterval, time: elapsed.Seconds()}
-
-			/*
-			fmt.Println("goroutine: bytesPerInterval read: ", bytesPerInterval)
-			fmt.Println("goroutine: time elapsed: ", elapsed.Seconds())
-			*/
-
 			c <- result
 			bytesPerInterval = 0
 			start = time.Now()
