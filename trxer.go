@@ -19,7 +19,6 @@ import "math/big"
 import "encoding/pem"
 import "io"
 
-
 var UPDATE_INTERVAL = 5
 var PORT = 6666
 
@@ -38,7 +37,6 @@ func quic_client_worker(addr string, wg *sync.WaitGroup) {
 	/* create tls conf, true => TLS accepts any certificate presented
 	by the server and any host name in that certificate
 	 */
-	
 	tlsConf := tls.Config {InsecureSkipVerify: true}
 
 	session, err := quic.DialAddr(addr, &tlsConf, nil)
@@ -72,7 +70,6 @@ func quic_client(threads int, addr string) {
 		destAddr := addr + ":" + strconv.Itoa(port)
 		port++
 
-		// increment sync primitive per thread
 		wg.Add(1)
 		go quic_client_worker(destAddr, &wg)
 	}
@@ -90,9 +87,6 @@ func quic_server_worker(c chan<- measurement, port int) {
 	
 	tlsConf := create_tls_config()
 
-	/* Server started with ListenAddr
-	   Creates packet conn and listening on given address
-	 */
 	packetConn, err := quic.ListenAddr(listenAddr, tlsConf, nil)
 	if err != nil {
 		panic("listenAddr")
@@ -100,7 +94,6 @@ func quic_server_worker(c chan<- measurement, port int) {
 
 	fmt.Println("goroutine: wait for incoming connection")
 	
-	// accept incoming connection
 	sess, err := packetConn.Accept()
 	if err != nil {
 		panic("acceptConn")
@@ -108,16 +101,8 @@ func quic_server_worker(c chan<- measurement, port int) {
 
 	fmt.Println("goroutine: connection established")
 
-	// connection close
-	// possible candidates => different granularities
-	// 1) session.go: SESSION level => func (s *session) Close() err
-	// 2) server.go: CONNECTION level => func (s *Server) Close()
-	// 3) stream.go: STREAM level => func (s *stream) Close() err
 	defer sess.Close()
 
-	/* "return next stream opened by peer" => stream NOT streamID
-	   c.f. packet connection can consist of several bidirection streams
-	 */
 	stream, err := sess.AcceptStream ()
 	if err != nil {
 		panic("acceptStream")
@@ -132,10 +117,10 @@ func quic_server_worker(c chan<- measurement, port int) {
 		if err != nil {
 			panic("readStream")
 		}
+
 		bytesPerInterval += uint64(numBytes)
 
 		elapsed := time.Since(start)
-		// elapsed.Seconds() returns float64
 		if elapsed.Seconds() > float64(UPDATE_INTERVAL) {
 			result := measurement{bytes: bytesPerInterval, time: elapsed.Seconds()}
 			c <- result
@@ -195,7 +180,6 @@ func create_tls_config() *tls.Config {
 		fmt.Println("generateTlsCert")
 	}
 
-	// 7. return tls config struct, i dont get what struct member we're addressing...
 	return &tls.Config{Certificates: []tls.Certificate{tlsCert}}
 }
 
