@@ -22,17 +22,20 @@ import "io"
 var UPDATE_INTERVAL = 5
 var PORT = 6666
 
-var BYTE_BUFFER_SIZE = 8096 * 8
+var DEF_BUFFER_SIZE = 8096 * 8
+var MIN_BUFFER_SIZE = 4096
+var MAX_BUFFER_SIZE = 212992
+
 
 type measurement struct {
 	bytes uint64
 	time  float64
 }
 
-func quic_client_worker(addr string, wg *sync.WaitGroup) {
+func quic_client_worker(addr string, wg *sync.WaitGroup, bufSize int) {
 	fmt.Println("Quic stream connecting to: ", addr)
 
-	buf := make([]byte, BYTE_BUFFER_SIZE, BYTE_BUFFER_SIZE)
+	buf := make([]byte, bufSize, bufSize)
 
 	/* create tls conf, true => TLS accepts any certificate presented
 	by the server and any host name in that certificate
@@ -62,7 +65,7 @@ func quic_client_worker(addr string, wg *sync.WaitGroup) {
 	defer wg.Done()
 }
 
-func quic_client(threads int, addr string) {
+func quic_client(threads int, addr string, bufSize int) {
 	port := PORT
 	var wg sync.WaitGroup
 
@@ -71,16 +74,16 @@ func quic_client(threads int, addr string) {
 		port++
 
 		wg.Add(1)
-		go quic_client_worker(destAddr, &wg)
+		go quic_client_worker(destAddr, &wg, bufSize)
 	}
 
 	wg.Wait()
 	fmt.Println("Releasing threads")
 }
 
-func quic_server_worker(c chan<- measurement, port int) {
+func quic_server_worker(c chan<- measurement, port int, bufSize int) {
 	var bytesPerInterval uint64 = 0
-	buf := make([]byte, BYTE_BUFFER_SIZE, BYTE_BUFFER_SIZE)
+	buf := make([]byte, bufSize, bufSize)
 	listenAddr := "[::]:" + strconv.Itoa(port)
 
 	fmt.Println("goroutine: listening on ", listenAddr)
@@ -130,13 +133,13 @@ func quic_server_worker(c chan<- measurement, port int) {
 	}
 }
 
-func quic_server(threads int) {
+func quic_server(threads int, bufSize int) {
 	var accumulated uint64
 	port := PORT
 	connStats := make(chan measurement)
 	
 	for i := 0; i < threads; i++ {
-		go quic_server_worker(connStats, port)
+		go quic_server_worker(connStats, port, bufSize)
 		port++
 	}
 
@@ -183,9 +186,9 @@ func create_tls_config() *tls.Config {
 	return &tls.Config{Certificates: []tls.Certificate{tlsCert}}
 }
 
-func udp_client_worker(addr string, wg *sync.WaitGroup) {
+func udp_client_worker(addr string, wg *sync.WaitGroup, bufSize int) {
 	defer wg.Done()
-	buf := make([]byte, BYTE_BUFFER_SIZE, BYTE_BUFFER_SIZE)
+	buf := make([]byte, bufSize, bufSize)
 	conn, err := net.Dial("udp", addr)
 	if err != nil {
 		panic("dial")
@@ -200,19 +203,19 @@ func udp_client_worker(addr string, wg *sync.WaitGroup) {
 	}
 }
 
-func udp_client(threads int, addr string) {
+func udp_client(threads int, addr string, bufSize int) {
 	port := PORT
 	var wg sync.WaitGroup
 	for i := 0; i < threads; i++ {
 		listen := addr + ":" + strconv.Itoa(port)
 		wg.Add(1)
-		go udp_client_worker(listen, &wg)
+		go udp_client_worker(listen, &wg, bufSize)
 		port += 1
 	}
 	wg.Wait()
 }
 
-func udp_server_worker(c chan<- measurement, port int) {
+func udp_server_worker(c chan<- measurement, port int, bufSize int) {
 
 	listen := "[::]:" + strconv.Itoa(port)
 	addr, error := net.ResolveUDPAddr("udp", listen)
@@ -229,7 +232,7 @@ func udp_server_worker(c chan<- measurement, port int) {
 	}
 	defer pc.Close()
 
-	message := make([]byte, BYTE_BUFFER_SIZE, BYTE_BUFFER_SIZE)
+	message := make([]byte, bufSize, bufSize)
 
 	var bytes uint64 = 0
 	start := time.Now()
@@ -252,11 +255,11 @@ func udp_server_worker(c chan<- measurement, port int) {
 
 }
 
-func udp_server(threads int) {
+func udp_server(threads int, bufSize int) {
 	c := make(chan measurement)
 	port := 6666
 	for i := 0; i < threads; i++ {
-		go udp_server_worker(c, port)
+		go udp_server_worker(c, port, bufSize)
 		port += 1
 	}
 
@@ -272,9 +275,9 @@ func udp_server(threads int) {
 	}
 }
 
-func tcp_client_worker(addr string, wg *sync.WaitGroup) {
+func tcp_client_worker(addr string, wg *sync.WaitGroup, bufSize int) {
 	defer wg.Done()
-	buf := make([]byte, BYTE_BUFFER_SIZE, BYTE_BUFFER_SIZE)
+	buf := make([]byte, bufSize, bufSize)
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		panic("dial")
@@ -289,23 +292,23 @@ func tcp_client_worker(addr string, wg *sync.WaitGroup) {
 	}
 }
 
-func tcp_client(threads int, addr string) {
+func tcp_client(threads int, addr string, bufSize int) {
 	port := 6666
 	var wg sync.WaitGroup
 	for i := 0; i < threads; i++ {
 		listen := addr + ":" + strconv.Itoa(port)
 		wg.Add(1)
-		go tcp_client_worker(listen, &wg)
+		go tcp_client_worker(listen, &wg, bufSize)
 		port += 1
 	}
 	wg.Wait()
 }
 
-func tcp_server(threads int) {
+func tcp_server(threads int, bufSize int) {
 	c := make(chan measurement)
 	port := 6666
 	for i := 0; i < threads; i++ {
-		go tcp_server_worker(c, port)
+		go tcp_server_worker(c, port, bufSize)
 		port += 1
 	}
 
@@ -321,7 +324,7 @@ func tcp_server(threads int) {
 	}
 }
 
-func tcp_server_worker(c chan<- measurement, port int) {
+func tcp_server_worker(c chan<- measurement, port int, bufSize int) {
 	listen := "[::]:" + strconv.Itoa(port)
 	println("Listening on", listen)
 	addr, error := net.ResolveTCPAddr("tcp", listen)
@@ -344,7 +347,7 @@ func tcp_server_worker(c chan<- measurement, port int) {
 	defer conn.Close()
 
 	fmt.Printf("Connection from %s\n", conn.RemoteAddr())
-	message := make([]byte, BYTE_BUFFER_SIZE, BYTE_BUFFER_SIZE)
+	message := make([]byte, bufSize, bufSize)
 
 	var bytes uint64 = 0
 	start := time.Now()
@@ -371,35 +374,43 @@ func main() {
 	protoPtr := flag.String("protocol", "udp", "quic, udp or tcp")
 	modePtr := flag.String("mode", "server", "server (\"localhost\") or IP address ")
 	threadPtr := flag.Int("threads", 1, "an int for numer of coroutines")
+	callSizePtr := flag.Int("call-size", DEF_BUFFER_SIZE, "quic application buffer in bytes")
 
 	flag.Parse()
 	fmt.Println("trxer(c) - 2017")
 	fmt.Println("Protocol:", *protoPtr)
 	fmt.Println("Mode:", *modePtr)
 	fmt.Println("Threads:", *threadPtr)
+	fmt.Println("(Quic) Call Size: ", *callSizePtr)
+
+	if *callSizePtr < MIN_BUFFER_SIZE {
+		panic("Min buffer size violated")
+	} else if *callSizePtr > MAX_BUFFER_SIZE {
+		panic("Max buffer size violated")
+	}
 
 	if *protoPtr == "udp" {
 		if *modePtr == "server" {
-			udp_server(*threadPtr)
+			udp_server(*threadPtr, *callSizePtr)
 		} else {
-			udp_client(*threadPtr, *modePtr)
+			udp_client(*threadPtr, *modePtr, *callSizePtr)
 		}
 	} else if *protoPtr == "tcp" {
 		if *modePtr == "server" {
-			tcp_server(*threadPtr)
+			tcp_server(*threadPtr, *callSizePtr)
 		} else {
-			tcp_client(*threadPtr, *modePtr)
+			tcp_client(*threadPtr, *modePtr, *callSizePtr)
 		}
 	} else if *protoPtr == "quic" {
 		if *modePtr == "server" {
 			// server
-			quic_server(*threadPtr)
+			quic_server(*threadPtr, *callSizePtr)
 		} else {
 			// client
-			quic_client(*threadPtr, *modePtr)
+			quic_client(*threadPtr, *modePtr, *callSizePtr)
 		}
 	} else {
-		panic("udp or tcp")
+		panic("quic, udp or tcp")
 	}
 
 }
