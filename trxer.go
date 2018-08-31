@@ -32,7 +32,7 @@ type measurement struct {
 func quic_client_worker(addr string, wg *sync.WaitGroup) {
 	fmt.Println("Quic stream connecting to: ", addr)
 
-	buf := make([]byte, 1400, 1400)
+	buf := make([]byte, BYTE_BUFFER_SIZE, BYTE_BUFFER_SIZE)
 
 	/* create tls conf, true => TLS accepts any certificate presented
 	by the server and any host name in that certificate
@@ -80,7 +80,7 @@ func quic_client(threads int, addr string) {
 
 func quic_server_worker(c chan<- measurement, port int) {
 	var bytesPerInterval uint64 = 0
-	buf := make([]byte, 1400, 1400)
+	buf := make([]byte, BYTE_BUFFER_SIZE, BYTE_BUFFER_SIZE)
 	listenAddr := "[::]:" + strconv.Itoa(port)
 
 	fmt.Println("goroutine: listening on ", listenAddr)
