@@ -185,7 +185,7 @@ func create_tls_config() *tls.Config {
 
 func udp_client_worker(addr string, wg *sync.WaitGroup) {
 	defer wg.Done()
-	buf := make([]byte, 1400, 1400)
+	buf := make([]byte, BYTE_BUFFER_SIZE, BYTE_BUFFER_SIZE)
 	conn, err := net.Dial("udp", addr)
 	if err != nil {
 		panic("dial")
