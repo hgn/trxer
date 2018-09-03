@@ -21,10 +21,7 @@ import "io"
 
 var UPDATE_INTERVAL = 5
 var PORT = 6666
-
 var DEF_BUFFER_SIZE = 8096 * 8
-var MIN_BUFFER_SIZE = 4096
-var MAX_BUFFER_SIZE = 212992
 
 
 type measurement struct {
@@ -374,20 +371,14 @@ func main() {
 	protoPtr := flag.String("protocol", "udp", "quic, udp or tcp")
 	modePtr := flag.String("mode", "server", "server (\"localhost\") or IP address ")
 	threadPtr := flag.Int("threads", 1, "an int for numer of coroutines")
-	callSizePtr := flag.Int("call-size", DEF_BUFFER_SIZE, "quic application buffer in bytes")
+	callSizePtr := flag.Int("call-size", DEF_BUFFER_SIZE, "application buffer in bytes")
 
 	flag.Parse()
 	fmt.Println("trxer(c) - 2017")
 	fmt.Println("Protocol:", *protoPtr)
 	fmt.Println("Mode:", *modePtr)
 	fmt.Println("Threads:", *threadPtr)
-	fmt.Println("(Quic) Call Size: ", *callSizePtr)
-
-	if *callSizePtr < MIN_BUFFER_SIZE {
-		panic("Min buffer size violated")
-	} else if *callSizePtr > MAX_BUFFER_SIZE {
-		panic("Max buffer size violated")
-	}
+	fmt.Println("Call Size: ", *callSizePtr)
 
 	if *protoPtr == "udp" {
 		if *modePtr == "server" {
