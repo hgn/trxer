@@ -11,7 +11,7 @@ import "sync"
 
 var UPDATE_INTERVAL = 5
 var PORT = 6666
-var DEF_BUFFER_SIZE = 8096 * 8
+var DEF_BUFFER_SIZE = 8096
 
 
 type measurement struct {
@@ -208,26 +208,26 @@ func main() {
 	protoPtr := flag.String("protocol", "udp", "udp or tcp")
 	modePtr := flag.String("mode", "server", "server (\"localhost\") or IP address ")
 	threadPtr := flag.Int("threads", 1, "an int for numer of coroutines")
-	callSizePtr := flag.Int("call-size", DEF_BUFFER_SIZE, "application buffer in bytes")
+	lengthPtr := flag.Int("length", DEF_BUFFER_SIZE, "application read/write buffer size in byte")
 
 	flag.Parse()
 	fmt.Println("trxer(c) - 2017")
 	fmt.Println("Protocol:", *protoPtr)
 	fmt.Println("Mode:", *modePtr)
 	fmt.Println("Threads:", *threadPtr)
-	fmt.Println("Call Size: ", *callSizePtr)
+	fmt.Println("Buffer Length: ", *lengthPtr)
 
 	if *protoPtr == "udp" {
 		if *modePtr == "server" {
-			udp_server(*threadPtr, *callSizePtr)
+			udp_server(*threadPtr, *lengthPtr)
 		} else {
-			udp_client(*threadPtr, *modePtr, *callSizePtr)
+			udp_client(*threadPtr, *modePtr, *lengthPtr)
 		}
 	} else if *protoPtr == "tcp" {
 		if *modePtr == "server" {
-			tcp_server(*threadPtr, *callSizePtr)
+			tcp_server(*threadPtr, *lengthPtr)
 		} else {
-			tcp_client(*threadPtr, *modePtr, *callSizePtr)
+			tcp_client(*threadPtr, *modePtr, *lengthPtr)
 		}
 	} else {
 		panic("quic, udp or tcp")
