@@ -8,17 +8,14 @@ import "time"
 import "strconv"
 import "sync"
 
-
 var UPDATE_INTERVAL = 5
 var PORT = 6666
 var DEF_BUFFER_SIZE = 8096
-
 
 type measurement struct {
 	bytes uint64
 	time  float64
 }
-
 
 func udp_client_worker(addr string, wg *sync.WaitGroup, bufSize int) {
 	defer wg.Done()
@@ -109,14 +106,29 @@ func udp_server(threads int, bufSize int) {
 	}
 }
 
-func tcp_client_worker(addr string, wg *sync.WaitGroup, bufSize int) {
+func tcp_client_worker(addr string, wg *sync.WaitGroup, bufSize int, windowSize int) {
 	defer wg.Done()
 	buf := make([]byte, bufSize, bufSize)
-	conn, err := net.Dial("tcp", addr)
+
+	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
+	if err != nil {
+		fmt.Printf("Cannot resolve address: %s\n", addr)
+		panic("ResolveTCPAddr")
+	}
+
+	conn, err := net.DialTCP("tcp", nil, tcpAddr)
 	if err != nil {
 		panic("dial")
 	}
 	defer conn.Close()
+
+	if windowSize != 0 {
+		err := conn.SetWriteBuffer(windowSize)
+		if err != nil {
+			fmt.Printf("Failed to set windowSize: %s\n", windowSize)
+			panic("SetWriteBuffer")
+		}
+	}
 
 	for {
 		_, err := conn.Write(buf)
@@ -126,23 +138,23 @@ func tcp_client_worker(addr string, wg *sync.WaitGroup, bufSize int) {
 	}
 }
 
-func tcp_client(threads int, addr string, bufSize int) {
+func tcp_client(threads int, addr string, bufSize int, windowSize int) {
 	port := 6666
 	var wg sync.WaitGroup
 	for i := 0; i < threads; i++ {
 		listen := addr + ":" + strconv.Itoa(port)
 		wg.Add(1)
-		go tcp_client_worker(listen, &wg, bufSize)
+		go tcp_client_worker(listen, &wg, bufSize, windowSize)
 		port += 1
 	}
 	wg.Wait()
 }
 
-func tcp_server(threads int, bufSize int) {
+func tcp_server(threads int, bufSize int, windowSize int) {
 	c := make(chan measurement)
 	port := 6666
 	for i := 0; i < threads; i++ {
-		go tcp_server_worker(c, port, bufSize)
+		go tcp_server_worker(c, port, bufSize, windowSize)
 		port += 1
 	}
 
@@ -158,7 +170,7 @@ func tcp_server(threads int, bufSize int) {
 	}
 }
 
-func tcp_server_worker(c chan<- measurement, port int, bufSize int) {
+func tcp_server_worker(c chan<- measurement, port int, bufSize int, windowSize int) {
 	listen := "[::]:" + strconv.Itoa(port)
 	println("Listening on", listen)
 	addr, error := net.ResolveTCPAddr("tcp", listen)
@@ -182,6 +194,14 @@ func tcp_server_worker(c chan<- measurement, port int, bufSize int) {
 
 	fmt.Printf("Connection from %s\n", conn.RemoteAddr())
 	message := make([]byte, bufSize, bufSize)
+
+	if windowSize != 0 {
+		err := conn.SetReadBuffer(windowSize)
+		if err != nil {
+			fmt.Printf("Failed to set windowSize: %s\n", windowSize)
+			panic("SetReadBuffer")
+		}
+	}
 
 	var bytes uint64 = 0
 	start := time.Now()
@@ -209,6 +229,7 @@ func main() {
 	modePtr := flag.String("mode", "server", "server (\"localhost\") or IP address ")
 	threadPtr := flag.Int("threads", 1, "an int for numer of coroutines")
 	lengthPtr := flag.Int("length", DEF_BUFFER_SIZE, "application read/write buffer size in byte")
+	windowPtr := flag.Int("window", 0, "configure TCP window size in bytes")
 
 	flag.Parse()
 	fmt.Println("trxer(c) - 2017")
@@ -225,9 +246,9 @@ func main() {
 		}
 	} else if *protoPtr == "tcp" {
 		if *modePtr == "server" {
-			tcp_server(*threadPtr, *lengthPtr)
+			tcp_server(*threadPtr, *lengthPtr, *windowPtr)
 		} else {
-			tcp_client(*threadPtr, *modePtr, *lengthPtr)
+			tcp_client(*threadPtr, *modePtr, *lengthPtr, *windowPtr)
 		}
 	} else {
 		panic("quic, udp or tcp")
